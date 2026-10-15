@@ -8,11 +8,11 @@ packer {
 }
 
 source "vagrant" "baza_ubuntu" {
-  # Używamy oficjalnego obrazu Ubuntu 24.04 jako punktu startowego
-  source_path = "bento/ubuntu-24.04"
-  provider    = "vmware_desktop"
-  # Packer wyeksportuje gotową maszynę jako nowy "box" dla Vagranta
-  add_force   = true
+  source_path  = "bento/ubuntu-24.04"
+  provider     = "vmware_desktop"
+  add_force    = true
+  communicator = "ssh"
+  output_dir   = "output-baza_ubuntu"
 }
 
 build {
@@ -23,9 +23,9 @@ build {
     script = "./setup.sh"
   }
 
-  # Zapisanie wyniku do pliku z rozszerzeniem .box
-  post-processor "vagrant" {
-    output = "moje-ubuntu-java.box"
-    keep_input_artifact = false
+  # Builder vagrant sam pakuje maszynę do output-baza_ubuntu/package.box.
+  # Komenda działa zarówno w sh (macOS), jak i w cmd (Windows).
+  post-processor "shell-local" {
+    inline = ["vagrant box add --force --name moje-ubuntu-java output-baza_ubuntu/package.box"]
   }
 }
