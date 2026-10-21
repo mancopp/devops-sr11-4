@@ -26,6 +26,6 @@ build {
   # Builder vagrant sam pakuje maszynę do output-baza_ubuntu/package.box.
   # Komenda działa zarówno w sh (macOS), jak i w cmd (Windows).
   post-processor "shell-local" {
-    inline = ["vagrant box add --force --name moje-ubuntu-java output-baza_ubuntu/package.box"]
+    inline = ["vagrant box add --force --name moje-ubuntu-ansible output-baza_ubuntu/package.box"]
   }
 }

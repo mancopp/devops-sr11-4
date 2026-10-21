@@ -1,6 +1,6 @@
 # devops-sr11-4
 
-Packer builds a Vagrant box (`moje-ubuntu-java`: Ubuntu 24.04 + OpenJDK 17 + Python 3) on VMware. Works on Apple Silicon (arm64) and Windows/Linux (amd64).
+Three VMware VMs (PostgreSQL, Spring Boot backend, Angular frontend) built from a Packer box, created by Vagrant and configured by Ansible. Works on Apple Silicon (arm64) and Windows/Linux (amd64).
 
 ## 1. Install (once)
 
@@ -30,7 +30,7 @@ packer init .
 packer build -force ubuntu.pkr.hcl
 ```
 
-Takes ~5 min. Output: `output-baza_ubuntu/package.box`, registered in Vagrant as `moje-ubuntu-java`.
+Takes ~5 min. Output: `output-baza_ubuntu/package.box`, registered in Vagrant as `moje-ubuntu-ansible`. Rebuild only after changing `ubuntu.pkr.hcl` or `setup.sh`, then recreate the VMs (`vagrant destroy -f && vagrant up`): existing VMs keep the box they were created from.
 
 ## 3. Run
 
@@ -46,6 +46,22 @@ vagrant destroy -f
 ```
 
 ## Architecture
+
+### What goes into the Packer box vs. Ansible
+
+| Packer box ([setup.sh](setup.sh)) | Ansible ([ansible/](ansible/site.yml)) |
+|---|---|
+| Ubuntu 24.04 (bento) with updates applied | Firewall rules, SSH hardening (`common`) |
+| `ansible` (with `community.*` collections), `acl` | PostgreSQL, database and user (`postgres`) |
+| Python 3 (part of Ubuntu) | Java 21, Maven, backend build and service (`backend`) |
+| | Node.js 22, nginx, frontend build (`frontend`) |
+
+The rule: the box holds only what **every** VM needs **before** Ansible can run. Everything else is in Ansible.
+
+- **Ansible itself goes into the box.** `ansible_local` runs it inside each VM, so without it every new VM would first have to download and install it, depending on the package mirror just to start configuring itself. `acl` is in the same category: Ansible needs it to switch to the `postgres` and `eticket` users.
+- **Role-specific software stays out of the box.** All three VMs share one box. Baking in Java, PostgreSQL or nginx would put each of them on two machines that never use it, enlarge the attack surface and the image, and force a rebuild plus VM recreation for every version bump. The first version of the box shipped OpenJDK 17, which the backend (Java 21) could not even use.
+- **Configuration stays in Ansible, even when it is shared.** SSH hardening and firewall defaults apply to every VM and rarely change, so they could live in the box. Keeping them in the `common` role means one place defines them, they depend on per-VM data (IPs, open ports), and `vagrant provision` re-applies them if someone changes a VM by hand. The box only guarantees that Ansible can run.
+- **Updates go into the box.** `apt-get upgrade` at build time means new VMs start patched; Ansible does not upgrade packages on every run, which keeps provisioning predictable.
 
 ### Private network subnet
 

@@ -26,7 +26,7 @@ MACHINES = {
 }
 
 Vagrant.configure("2") do |config|
-  config.vm.box = "moje-ubuntu-java"
+  config.vm.box = "moje-ubuntu-ansible"
 
   # Order matters: vagrant up provisions machines one by one, so db is ready before the backend starts.
   MACHINES.each do |name, spec|
@@ -40,8 +40,7 @@ Vagrant.configure("2") do |config|
         v.cpus = spec[:cpus]
       end
 
-      # ansible_local runs Ansible inside each guest, so the host needs no Ansible (works on Windows too).
-      node.vm.provision "shell", inline: "command -v ansible-playbook >/dev/null || (apt-get update -y && apt-get install -y ansible)"
+      # ansible_local runs Ansible inside each guest (baked into the box), so the host needs no Ansible.
       node.vm.provision "ansible_local" do |ansible|
         ansible.install = false
         ansible.compatibility_mode = "2.0"

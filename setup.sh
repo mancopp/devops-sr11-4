@@ -1,9 +1,15 @@
 #!/bin/bash
-# Aktualizacja repozytoriów
-sudo apt-get update -y
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
 
-# Instalacja niezbędnych pakietów (Python dla Ansible, Java dla Backendu)
-sudo apt-get install -y python3 python3-pip openjdk-17-jre
+# Obraz zawiera tylko to, co potrzebne każdej maszynie, zanim Ansible zacznie działać.
+# Wszystko zależne od roli maszyny (PostgreSQL, Java, nginx, aplikacja) instaluje Ansible.
+sudo -E apt-get update -y
+sudo -E apt-get upgrade -y
+
+# ansible: provisioner ansible_local uruchamia go wewnątrz maszyny (pakiet Ubuntu zawiera kolekcje community.*)
+# acl: wymagany przez Ansible do become_user na nieuprzywilejowanego użytkownika (postgres, eticket)
+sudo -E apt-get install -y ansible acl
 
 # Czyszczenie cache, aby zmniejszyć rozmiar ostatecznego obrazu
 sudo apt-get clean

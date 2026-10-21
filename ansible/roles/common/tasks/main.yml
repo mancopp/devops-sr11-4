@@ -1,6 +1,6 @@
 - name: Install base packages
   ansible.builtin.apt:
-    name: [ufw, git, acl]
+    name: [ufw, git]
     update_cache: true
     cache_valid_time: 3600
 
