@@ -38,7 +38,7 @@ Takes ~5 min. Output: `output-baza_ubuntu/package.box`, registered in Vagrant as
 vagrant up
 ```
 
-First run takes ~15 min (Maven and npm build the app inside the VMs). Then open http://\<subnet\>.12 (default http://192.168.62.12; the host-only network is reachable from the host). Seeded accounts: `passenger@example.com` / `Passenger123!`, `inspector@example.com` / `Inspector123!`.
+First run takes ~15 min (Maven and npm build the app inside the VMs). Then open http://\<subnet\>.12 (see [Private network subnet](#private-network-subnet); the host-only network is reachable from the host). Seeded accounts: `passenger@example.com` / `Passenger123!`, `inspector@example.com` / `Inspector123!`.
 
 ```bash
 vagrant provision backend   # re-run Ansible on one machine (rebuilds only if the app repo changed)
@@ -49,14 +49,7 @@ vagrant destroy -f
 
 ### Private network subnet
 
-VMs get `<subnet>.10/.11/.12`, where `<subnet>` is `VM_SUBNET` (default `192.168.62`). If `vagrant up` fails with `Failed to create a new VMware networking device`, use the subnet of VMware's existing host-only network (vmnet1) instead:
-
-| | Find vmnet1 subnet | Set it permanently (then open a new terminal) |
-|---|---|---|
-| macOS | `grep VNET_1_HOSTONLY_SUBNET "/Library/Preferences/VMware Fusion/networking"` | fish: `set -Ux VM_SUBNET 192.168.171`, zsh: `echo 'export VM_SUBNET=192.168.171' >> ~/.zshrc` |
-| Windows | `ipconfig`, section *VMware Network Adapter VMnet1* (e.g. `192.168.171.1` → `192.168.171`) | PowerShell: `[Environment]::SetEnvironmentVariable("VM_SUBNET", "192.168.171", "User")` |
-
-Set it permanently: every `vagrant` command passes the IPs to Ansible, so running `vagrant provision` without it reconfigures the VMs with the default subnet. After changing it on existing VMs, run `vagrant reload --provision`.
+VMs get `<subnet>.10/.11/.12` on VMware's existing host-only network (vmnet1). Its subnet differs per installation, so the Vagrantfile reads it from the host (macOS/Linux: VMware `networking` file, Windows: `ipconfig`). Check the assigned IPs with `vagrant ssh db -c "ip -br a"`. If vmnet1 is not found it falls back to `192.168.62`. To force a subnet, set `VM_SUBNET` (e.g. `VM_SUBNET=192.168.171`) for every `vagrant` command.
 
 ### VMs
 

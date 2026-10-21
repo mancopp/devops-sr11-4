@@ -1,10 +1,23 @@
 # Keeps Vagrant from picking Hyper-V on Windows hosts where it is enabled.
 ENV["VAGRANT_DEFAULT_PROVIDER"] ||= "vmware_desktop"
 
-# VMware reuses an existing host-only vmnet whose subnet matches; creating a new one fails on some
-# Fusion/Workstation setups, so point this at your vmnet1 subnet if `vagrant up` reports a vmnet error.
-# The default avoids 192.168.56, which VirtualBox's host-only adapter usually holds.
-SUBNET = ENV.fetch("VM_SUBNET", "192.168.62")
+# VMware reuses an existing host-only vmnet whose subnet matches, while creating a new one fails on some
+# Fusion/Workstation setups. vmnet1's subnet is random per installation, so read it from the host.
+def vmnet1_subnet
+  if Vagrant::Util::Platform.windows?
+    # Locale-independent: take the first IPv4 address in the ipconfig section of the VMnet1 adapter.
+    section = `ipconfig`.b.split(/\r?\n(?=\S)/).find { |s| s.include?("VMnet1") }
+    section && section[/\b(\d+\.\d+\.\d+)\.\d+\b/, 1]
+  else
+    conf = ["/Library/Preferences/VMware Fusion/networking", "/etc/vmware/networking"].find { |f| File.readable?(f) }
+    conf && File.read(conf)[/VNET_1_HOSTONLY_SUBNET (\d+\.\d+\.\d+)\.0/, 1]
+  end
+rescue StandardError
+  nil
+end
+
+# The fallback avoids 192.168.56, which VirtualBox's host-only adapter usually holds.
+SUBNET = ENV.fetch("VM_SUBNET") { vmnet1_subnet || "192.168.62" }
 
 MACHINES = {
   "db"       => { ip: "#{SUBNET}.10", memory: 1024, cpus: 1 },
