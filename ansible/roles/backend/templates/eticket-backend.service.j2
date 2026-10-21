@@ -1,0 +1,15 @@
+[Unit]
+Description=eTicket backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User={{ app_user }}
+EnvironmentFile=/etc/eticket/backend.env
+ExecStart=/usr/bin/java -jar /opt/eticket/app.jar
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

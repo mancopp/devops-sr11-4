@@ -1,0 +1,2 @@
+ufw_rules:
+  - { port: 80, from: any }

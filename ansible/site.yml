@@ -1,0 +1,23 @@
+- name: Common baseline
+  hosts: all
+  become: true
+  roles:
+    - common
+
+- name: Database
+  hosts: db
+  become: true
+  roles:
+    - postgres
+
+- name: Backend
+  hosts: backend
+  become: true
+  roles:
+    - backend
+
+- name: Frontend
+  hosts: frontend
+  become: true
+  roles:
+    - frontend

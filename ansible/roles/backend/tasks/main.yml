@@ -1,0 +1,92 @@
+- name: Install JDK and Maven
+  ansible.builtin.apt:
+    name: [openjdk-21-jdk-headless, maven]
+
+- name: Create application user
+  ansible.builtin.user:
+    name: "{{ app_user }}"
+    system: true
+    home: /opt/eticket
+    shell: /usr/sbin/nologin
+
+- name: Fetch application source
+  ansible.builtin.git:
+    repo: "{{ app_repo_url }}"
+    version: "{{ app_repo_version }}"
+    dest: /opt/eticket/src
+    depth: 1
+  become_user: "{{ app_user }}"
+  register: app_src
+
+- name: Check for deployed jar
+  ansible.builtin.stat:
+    path: /opt/eticket/app.jar
+  register: deployed_jar
+
+- name: Build and deploy backend
+  when: app_src.changed or not deployed_jar.stat.exists
+  block:
+    # The app repo tracks backend/target, so building in the checkout would dirty it and break the next git update.
+    - name: Clear build directory
+      ansible.builtin.file:
+        path: /opt/eticket/build
+        state: absent
+
+    - name: Copy sources to build directory
+      ansible.builtin.copy:
+        src: /opt/eticket/src/backend/
+        dest: /opt/eticket/build/
+        remote_src: true
+        owner: "{{ app_user }}"
+        mode: preserve
+
+    - name: Build jar
+      ansible.builtin.command:
+        cmd: mvn -B -q -DskipTests package
+        chdir: /opt/eticket/build
+      become_user: "{{ app_user }}"
+      changed_when: true
+
+    - name: Locate built jar
+      ansible.builtin.find:
+        paths: /opt/eticket/build/target
+        patterns: "eticket-backend-*.jar"
+      register: built_jar
+
+    - name: Deploy jar
+      ansible.builtin.copy:
+        src: "{{ built_jar.files[0].path }}"
+        dest: /opt/eticket/app.jar
+        remote_src: true
+        owner: "{{ app_user }}"
+        mode: "0644"
+      notify: Restart backend
+
+- name: Create config directory
+  ansible.builtin.file:
+    path: /etc/eticket
+    state: directory
+    mode: "0755"
+
+- name: Write environment file
+  ansible.builtin.template:
+    src: backend.env.j2
+    dest: /etc/eticket/backend.env
+    owner: root
+    group: "{{ app_user }}"
+    mode: "0640"
+  notify: Restart backend
+
+- name: Install systemd unit
+  ansible.builtin.template:
+    src: eticket-backend.service.j2
+    dest: /etc/systemd/system/eticket-backend.service
+    mode: "0644"
+  notify: Restart backend
+
+- name: Enable backend service
+  ansible.builtin.systemd_service:
+    name: eticket-backend
+    enabled: true
+    state: started
+    daemon_reload: true

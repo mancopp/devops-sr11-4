@@ -1,0 +1,11 @@
+# db_ip, backend_ip, frontend_ip come from the Vagrantfile (extra_vars).
+app_repo_url: https://github.com/mancopp/piisw-projekt.git
+app_repo_version: main
+app_user: eticket
+
+db_name: eticket
+db_user: eticket
+# TODO: move secrets to ansible-vault
+db_password: eticket-change-me
+backend_port: 8080
+backend_jwt_secret: change-me-to-a-random-string-of-at-least-64-characters-0123456789

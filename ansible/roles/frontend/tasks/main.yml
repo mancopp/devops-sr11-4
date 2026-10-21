@@ -1,0 +1,106 @@
+- name: Add NodeSource signing key
+  ansible.builtin.get_url:
+    url: https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key
+    dest: /etc/apt/keyrings/nodesource.asc
+    mode: "0644"
+
+# Ubuntu 24.04 ships Node 18, Angular 21 needs >= 20.19.
+- name: Add NodeSource repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/nodesource.asc] https://deb.nodesource.com/node_22.x nodistro main"
+    filename: nodesource
+
+- name: Install Node.js and nginx
+  ansible.builtin.apt:
+    name: [nodejs, nginx]
+
+- name: Create application user
+  ansible.builtin.user:
+    name: "{{ app_user }}"
+    system: true
+    home: /opt/eticket
+    shell: /usr/sbin/nologin
+
+- name: Fetch application source
+  ansible.builtin.git:
+    repo: "{{ app_repo_url }}"
+    version: "{{ app_repo_version }}"
+    dest: /opt/eticket/src
+    depth: 1
+  become_user: "{{ app_user }}"
+  register: app_src
+
+- name: Check for deployed frontend
+  ansible.builtin.stat:
+    path: /var/www/eticket/index.html
+  register: deployed_index
+
+- name: Build and deploy frontend
+  when: app_src.changed or not deployed_index.stat.exists
+  become_user: "{{ app_user }}"
+  environment:
+    CI: "true"
+    NG_CLI_ANALYTICS: "false"
+  block:
+    - name: Clear build directory
+      ansible.builtin.file:
+        path: /opt/eticket/build
+        state: absent
+      become_user: root
+
+    - name: Copy sources to build directory
+      ansible.builtin.copy:
+        src: /opt/eticket/src/frontend/
+        dest: /opt/eticket/build/
+        remote_src: true
+        owner: "{{ app_user }}"
+        mode: preserve
+      become_user: root
+
+    # The app hardcodes http://localhost:8080; nginx proxies /api on the same origin instead.
+    - name: Point API calls at the nginx proxy
+      ansible.builtin.replace:
+        path: /opt/eticket/build/src/app/core/config/api.config.ts
+        regexp: "API_BASE_URL = '.*'"
+        replace: "API_BASE_URL = '/api/v1'"
+
+    - name: Install dependencies
+      ansible.builtin.command:
+        cmd: npm ci --no-audit --no-fund
+        chdir: /opt/eticket/build
+      changed_when: true
+
+    - name: Build frontend
+      ansible.builtin.command:
+        cmd: npm run build
+        chdir: /opt/eticket/build
+      changed_when: true
+
+    - name: Deploy static files
+      ansible.builtin.copy:
+        src: /opt/eticket/build/dist/webapp/browser/
+        dest: /var/www/eticket/
+        remote_src: true
+        owner: www-data
+        mode: preserve
+      become_user: root
+
+- name: Configure nginx site
+  ansible.builtin.template:
+    src: eticket.conf.j2
+    dest: /etc/nginx/sites-available/eticket
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Enable nginx site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/eticket
+    dest: /etc/nginx/sites-enabled/eticket
+    state: link
+  notify: Reload nginx
+
+- name: Disable default nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reload nginx

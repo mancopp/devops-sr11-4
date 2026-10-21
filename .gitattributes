@@ -1,2 +1,2 @@
-* text=auto
-*.sh text eol=lf
+# Ansible templates and files end up inside Linux guests; CRLF from a Windows checkout breaks them.
+* text=auto eol=lf

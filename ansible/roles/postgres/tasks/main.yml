@@ -1,0 +1,33 @@
+- name: Install PostgreSQL
+  ansible.builtin.apt:
+    name: ["postgresql-{{ postgres_version }}", python3-psycopg2]
+
+- name: Listen on the private network
+  ansible.builtin.lineinfile:
+    path: "{{ postgres_conf_dir }}/postgresql.conf"
+    regexp: "^#?listen_addresses"
+    line: "listen_addresses = 'localhost,{{ db_ip }}'"
+  notify: Restart postgresql
+
+- name: Allow the backend to connect
+  community.postgresql.postgresql_pg_hba:
+    dest: "{{ postgres_conf_dir }}/pg_hba.conf"
+    contype: host
+    databases: "{{ db_name }}"
+    users: "{{ db_user }}"
+    address: "{{ backend_ip }}/32"
+    method: scram-sha-256
+  notify: Restart postgresql
+
+- name: Create application user
+  community.postgresql.postgresql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+  become_user: postgres
+  no_log: true
+
+- name: Create application database
+  community.postgresql.postgresql_db:
+    name: "{{ db_name }}"
+    owner: "{{ db_user }}"
+  become_user: postgres

@@ -1,0 +1,5 @@
+- name: Restart backend
+  ansible.builtin.systemd_service:
+    name: eticket-backend
+    state: restarted
+    daemon_reload: true

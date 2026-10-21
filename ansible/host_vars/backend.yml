@@ -1,0 +1,2 @@
+ufw_rules:
+  - { port: "{{ backend_port }}", from: "{{ frontend_ip }}" }
