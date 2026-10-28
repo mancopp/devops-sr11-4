@@ -1,3 +1,4 @@
 *.box
 output-*/
 .vagrant/
+.vault_pass

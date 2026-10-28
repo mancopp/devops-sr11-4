@@ -1,0 +1,11 @@
+# db_ip, backend_ip, frontend_ip and host_ip come from the Vagrantfile (extra_vars).
+# Secrets live in vault.yml (ansible-vault).
+app_repo_url: https://github.com/mancopp/piisw-projekt.git
+app_repo_version: main
+app_user: eticket
+
+db_name: eticket
+db_user: eticket
+db_password: "{{ vault_db_password }}"
+backend_port: 8080
+backend_jwt_secret: "{{ vault_backend_jwt_secret }}"

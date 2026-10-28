@@ -18,13 +18,12 @@ source "vagrant" "baza_ubuntu" {
 build {
   sources = ["source.vagrant.baza_ubuntu"]
 
-  # Wywołanie skryptu z Kroku 1 wewnątrz budowanej maszyny
   provisioner "shell" {
     script = "./setup.sh"
   }
 
-  # Builder vagrant sam pakuje maszynę do output-baza_ubuntu/package.box.
-  # Komenda działa zarówno w sh (macOS), jak i w cmd (Windows).
+  # The vagrant builder packages the box into output-baza_ubuntu/package.box itself.
+  # The command works in both sh (macOS/Linux) and cmd (Windows).
   post-processor "shell-local" {
     inline = ["vagrant box add --force --name moje-ubuntu-ansible output-baza_ubuntu/package.box"]
   }

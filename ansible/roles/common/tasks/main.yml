@@ -19,11 +19,17 @@
     direction: incoming
     policy: deny
 
-- name: Allow SSH
+# Vagrant reaches the guest over the NAT network, a plain ssh from the host over the host-only one. VMware gives
+# the host the first address of each network; allowing whole subnets would let the VMs SSH into each other.
+- name: Allow SSH from the host only
   community.general.ufw:
     rule: allow
     port: "22"
     proto: tcp
+    from_ip: "{{ item }}"
+  loop:
+    - "{{ host_ip }}"
+    - "{{ ansible_default_ipv4.network | regex_replace('\\d+$', '1') }}"
 
 - name: Allow host-specific ports
   community.general.ufw:

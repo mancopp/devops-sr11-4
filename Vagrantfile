@@ -25,6 +25,9 @@ MACHINES = {
   "frontend" => { ip: "#{SUBNET}.12", memory: 2048, cpus: 2 },
 }
 
+VAULT_PASS_FILE = File.join(__dir__, ".vault_pass")
+VAULT_PASS = File.exist?(VAULT_PASS_FILE) ? File.read(VAULT_PASS_FILE).strip : ""
+
 Vagrant.configure("2") do |config|
   config.vm.box = "moje-ubuntu-ansible"
 
@@ -40,6 +43,17 @@ Vagrant.configure("2") do |config|
         v.cpus = spec[:cpus]
       end
 
+      # Copied into the guest instead of read from /vagrant: Ansible executes a password file that has the
+      # exec bit set, and shared folders don't reliably preserve file modes across hosts.
+      node.vm.provision "shell", name: "vault-password", env: { "VAULT_PASS" => VAULT_PASS }, inline: <<~SH
+        if [ -z "$VAULT_PASS" ]; then
+          echo "Missing .vault_pass next to the Vagrantfile (see README: Secrets)" >&2
+          exit 1
+        fi
+        install -o vagrant -g vagrant -m 0400 /dev/null /home/vagrant/.vault_pass
+        printf '%s' "$VAULT_PASS" > /home/vagrant/.vault_pass
+      SH
+
       # ansible_local runs Ansible inside each guest (baked into the box), so the host needs no Ansible.
       node.vm.provision "ansible_local" do |ansible|
         ansible.install = false
@@ -48,7 +62,8 @@ Vagrant.configure("2") do |config|
         ansible.playbook = "site.yml"
         ansible.inventory_path = "inventory.ini"
         ansible.limit = name
-        ansible.extra_vars = MACHINES.to_h { |n, m| ["#{n}_ip", m[:ip]] }
+        ansible.vault_password_file = "/home/vagrant/.vault_pass"
+        ansible.extra_vars = MACHINES.to_h { |n, m| ["#{n}_ip", m[:ip]] }.merge("host_ip" => "#{SUBNET}.1")
       end
     end
   end
